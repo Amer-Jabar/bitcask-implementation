@@ -1,0 +1,81 @@
+= Implementation
+
+Bitcask is a log structured hash table in memory database that provides fast write and read access. In this project we are going to attempt to implement it in Java.
+
+
+== Components
+. *Base directory*: to store log files.
+. *Log files*: to store write entries and be used for read entries.
+. *Hint files*: stored with log files representing sparse indexes.
+. *In-memory keydir*: in-memory sparse index representing all `key:value` pairs.
+. *Compactor*: a process that reads old log files and compacts them.
+
+
+== Schemas
+=== Base directory
+Every existing entry in our database should be in one of these files.
+----
+./hint-file-5.txt
+./log-file-5.txt <--- last compacted log file
+./hint-file-6.txt
+./log-file-6.txt
+./hint-file-7.txt
+./log-file-7.txt
+./hint-file-8.txt
+./log-file-8.txt <--- currently open
+----
+
+=== Log files
+----
+key1:value
+key2:value
+key3:value
+key4:value
+----
+
+=== Hint files
+----
+key1:offset:value-size
+key2:offset:value-size
+key3:offset:value-size
+key4:offset:value-size
+----
+
+=== In-memory keydir
+----
+key1:filename:offset:value-size
+key2:filename:offset:value-size
+key3:filename:offset:value-size
+key4:filename:offset:value-size
+----
+
+=== Compactor
+Periodically reads the last N log files, compacts them, overwrites the last log file in the list of read log files and remove every log file older than the overwritten file.
+
+
+== Flows
+
+=== Write flow
+* Check if there is an active log file opened. The active file should be the the last in the base directory. _(Conditional)_
+
+<<<
+. Append `key:value` pair to the end of the file.
+. Add `key:offset` to the keydir.
+
+=== Read flow
+* Check if there is an active log file opened. The active file should be the the last in the base directory. _(Conditional)_
+
+<<<
+. Check the `keydir` for the filename, offset and size of the value for the `key` to be looked up.
+. Lookup the value in the log file mentioned in the `keydir` entry.
+
+
+
+
+
+
+
+
+
+
+
