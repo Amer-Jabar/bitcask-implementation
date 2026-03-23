@@ -1,0 +1,130 @@
+:hardbreaks-option:
+
+= Implementation - V1
+
+Bitcask is a log structured hash table in memory database that provides fast write and read access. In this project we are going to attempt to implement it in Java.
+
+
+== Components
+. *Base directory*: to store log files.
+. *Log files*: to store write entries and be used for read entries.
+. *Hint files*: stored with log files representing sparse indexes.
+. *In-memory keydir*: in-memory sparse index representing all `key:value` pairs.
+. *Compactor*: a process that reads old log files and compacts them.
+
+
+== Schemas
+=== Base directory
+Every existing entry in our database should be in one of these files.
+----
+./hint-file-5.txt
+./log-file-5.txt <--- last compacted log file
+./hint-file-6.txt
+./log-file-6.txt
+./hint-file-7.txt
+./log-file-7.txt
+./hint-file-8.txt
+./log-file-8.txt <--- currently open
+----
+
+=== Log files
+----
+key1:value
+key2:value
+key3:value
+key4:value
+----
+
+=== Hint files
+----
+key1:offset:value-size
+key2:offset:value-size
+key3:offset:value-size
+key4:offset:value-size
+----
+
+=== In-memory keydir
+----
+key1:filename:offset:value-size
+key2:filename:offset:value-size
+key3:filename:offset:value-size
+key4:filename:offset:value-size
+----
+
+=== Compactor
+Periodically reads the last N log files, compacts them, overwrites the last log file in the list of read log files and remove every log file older than the overwritten file.
+
+
+== Flows
+
+=== Write flow
+* Check if there is an active log file opened. The active file should be the last in the base directory. _(Conditional)_
+
+<<<
+. Append `key:value` pair to the end of the file.
+. Add `key:offset` to the keydir.
+
+=== Read flow
+* Check if there is an active log file opened. The active file should be the last in the base directory. _(Conditional)_
+
+<<<
+. Check the `keydir` for the filename, offset and size of the value for the `key` to be looked up.
+. Lookup the value in the log file mentioned in the `keydir` entry.
+
+=== Compaction flow
+
+
+== Optimizations
+
+The discussions here should pave the way for the next iteration of development of the current implementation. The next cycle should be V2.
+
+==== What if we keep two Hashmaps in memory?
+
+If we have enough memory, it makes sense to keep two HashMaps in memory. The first one for key:value(s), and the second one for key:metadata.
+
+----
+Q: Why should we have a HashMap for key:value(s)?
+A: Because it will save us a full disk seek.
+Q: Wouldn't that be inefficient for large values? And wouldn't that also increase in size faster than the `keydir`?
+A: Yes, that is why we will define criteria for storing key:value(s) in the first HashMap.
+Q: What will its name be?
+A: We can call it the `CacheMap`. `CacheMap` for key:value(s) and `keydir` for key:metadata.
+----
+
+===== `CacheMap` Storage Criteria
+* The value should not exceed the predefined limit.
+* The data structure should act like an LFU cache. It should evict items that haven't been accessed as many times during a time interval.
+
+==== Is a hint file same as a Hashmap stored on disk?
+
+Yes. A full hint file can be loaded into memory to form the `keydir`. In order to form the `CacheMap`, we can process the same keydir and fetch the values it contains from disk.
+
+==== How to do compaction correctly and efficiently?
+
+The basic approach to do compaction is to have a background thread that:
+
+. Periodically reads the N oldest log files prior to the currently active log/hint file.
+. Compacts them and writes the compacted file as the file prior to the active one.
+
+----
+Q: What is a good number for N?
+A: We want balance. Having N = 2 will probably imply very fast but too frequent compactions. The benefit is that if the write bandwidth is not too high, we will have the compaction thread keeping up with the write threads. But if we have high write bandwidth, the compaction thread will fall behind. The general benefit from having a small N is that it will leave more memory for the write threads and the two in-memory HashMaps.
+On the other side, having N = 1024 will mean very long compaction periods, fatality of failure - and the danger of lacking behind with such failures, and large memory consumption. The benefit though is less IO operations since we open 1024 files, load them into memory and write the new file -> 2 IO operations if the reads are batched.
+Q: So, what is a good number for N?
+A: Ideally we can have a dynamic number that changes over time using profiling data from the hardware. We can start with 32, increment when there are too many writes, and decrement when we use too much memory.
+Q: But if we get too many writes and there is already too much data, there is nothing that we can do.
+A: There is. We can utilize multiple compaction threads and assign different sets of files to them. For example, if we have files 1-2048, we can spin up 16 threads, each compacting 128 files. But this comes at the cost of more memory and more complex thread management and failure handling.
+----
+
+==== Concurrent writes
+
+==== How to deal with large Hashmaps?
+
+==== Performing range queries
+
+
+
+
+
+
+
