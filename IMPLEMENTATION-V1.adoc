@@ -118,11 +118,21 @@ A: There is. We can utilize multiple compaction threads and assign different set
 
 ==== Concurrent writes
 
-==== How to deal with large Hashmaps?
+We can possibly allow multiple threads to do writes at the same time. Approaches include:
+
+. Multiple threads - Single `keydir` - Single log file: have N writer threads accepting write requests and updating the `keydir`. The downside of this is that there could be race conditions when multiple requests try to write the same key-value pair. A way to solve this issue is to use concurrent data structures such as the `ConcurrentHashMap` in Java to guarantee atomicity. It is worth noting that this approach requires all writes to be serializable when flushed to disk. Conceptually it is easy to think of a flow of write requests that get serialized at the layer of the `ConcurrentHashMap`, but how can we guarantee the same serializability when writing to disk? Maybe a disk-writing-proxy flushing the data that are written into the `ConcurrentHashMap`?
+. Multiple threads - Multiple `keydir`'s - Single log file: with this approach, we have N threads corresponding to N `keydir`'s. The benefit of this is that we don't need to synchronize access to the HashMaps. The challenge though is to synchronize/linearize writing to the single log file from the different threads/HashMap proxies.
+. Multiple threads - Multiple `keydir`'s - Multiple log file: this provides optimal write efficiency since we have N threads -> N `keydir`'s -> N active log files. The challenge with this approach is the necessity to keep track of the HashMap's and linearly go over them to see which one contains the key-value pair. The next challenge is that more than one HashMap can contain the same key-value pair possibly having mismatching values. A solution to this could be making sure that each active log file accepts a specific set of keys among the full set of keys - eg. log-file-1 accepts keys starting with A-J, log-file-2 accepts keys starting with K-Y and so on. Another benefit of this approach is that lookups will not be too expensive since dividing log files based on key ranges means that based on the key, we access certain HashMaps and certain log files. This comes with the possible downside of having to do multiple queries in order to fulfill a range query.
+
+The three approaches mentioned here are to be examined one by one.
+
+==== How to deal with large HashMaps?
+
+If the constraint is the HashMaps being too large and not fitting in memory, a solution can be having the HashMap as a mix of a Map and an LFU cache. This way, we can keep a maximum size which the HashMap's don't exceed. This comes at the cost of having to load hint files into memory in case the key is missing from the in-memory HashMaps. This hint file loading mechanism won't perform well without small hint files + key range based splitting of hint files.
 
 ==== Performing range queries
 
-
+Instead of a HashMap, we can use a TreeMap and for range queries, we can lookup a submap within the TreeMap.
 
 
 

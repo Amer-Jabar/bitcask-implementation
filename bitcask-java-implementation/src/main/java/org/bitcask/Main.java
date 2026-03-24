@@ -9,16 +9,8 @@ public class Main {
 
 		Bitcask bitcask = new BitcaskImplementation("/Users/amermuhammed/Desktop/Coding/study/databases/bitcask-implementation/disk");
 
-		String value = Stream.generate(() -> "aaa").limit(100_000).collect(Collectors.joining(""));
+		String value = "aaaa";
 
-		bitcask.write("hello", value);
-		bitcask.write("hello", value);
-		bitcask.write("hello", value);
-		bitcask.write("hello", value);
-		bitcask.write("hello", value);
-		bitcask.write("hello", value);
-		bitcask.write("hello", value);
-		bitcask.write("hello", value);
 		bitcask.write("hello", value);
 		bitcask.write("hello", value);
 		bitcask.write("hello", value);

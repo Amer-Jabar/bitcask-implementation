@@ -2,16 +2,14 @@ package org.bitcask;
 
 import java.io.File;
 import java.io.RandomAccessFile;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.util.Arrays;
 import java.util.Comparator;
 
 public class ActiveFile {
 	private static final String LOG_FILE_NAME = "log-file";
-	private static final String HINT_FILE_NAME = "log-file";
+	private static final String HINT_FILE_NAME = "hint-file";
 	private static final long FILE_SIZE_THRESHOLD = 1_000_000;
 	private static final String CREATION_FAILURE_ERROR_MESSAGE = "Failed to create %s.";
 
