@@ -10,7 +10,6 @@ Bitcask is a log structured hash table in memory database that provides fast wri
 . *Log files*: to store write entries and be used for read entries.
 . *Hint files*: stored with log files representing sparse indexes.
 . *In-memory keydir*: in-memory sparse index representing all `key:value` pairs.
-. *Compactor*: a process that reads old log files and compacts them.
 
 
 == Schemas
@@ -18,7 +17,7 @@ Bitcask is a log structured hash table in memory database that provides fast wri
 Every existing entry in our database should be in one of these files.
 ----
 ./hint-file-5.txt
-./log-file-5.txt <--- last compacted log file
+./log-file-5.txt
 ./hint-file-6.txt
 ./log-file-6.txt
 ./hint-file-7.txt
@@ -51,9 +50,6 @@ key3:filename:offset:value-size
 key4:filename:offset:value-size
 ----
 
-=== Compactor
-Periodically reads the last N log files, compacts them, overwrites the last log file in the list of read log files and remove every log file older than the overwritten file.
-
 
 == Flows
 
@@ -70,8 +66,6 @@ Periodically reads the last N log files, compacts them, overwrites the last log 
 <<<
 . Check the `keydir` for the filename, offset and size of the value for the `key` to be looked up.
 . Lookup the value in the log file mentioned in the `keydir` entry.
-
-=== Compaction flow
 
 
 == Optimizations
@@ -101,7 +95,7 @@ Yes. A full hint file can be loaded into memory to form the `keydir`. In order t
 
 ==== How to do compaction correctly and efficiently?
 
-The basic approach to do compaction is to have a background thread that:
+We currently don't provide a compaction mechanism. Meaning that log files along their hint files will remain on disk un-compacted. The basic approach to do compaction is to have a background thread that:
 
 . Periodically reads the N oldest log files prior to the currently active log/hint file.
 . Compacts them and writes the compacted file as the file prior to the active one.
@@ -134,7 +128,7 @@ If the constraint is the HashMaps being too large and not fitting in memory, a s
 
 Instead of a HashMap, we can use a TreeMap and for range queries, we can lookup a submap within the TreeMap.
 
+==== How to handle crashes?
 
-
-
+At the moment, if an instance of Bitcask crashes, it will leave a lot of log and hint files on disk. After the restart, we don't have a way to re-read those hint files that we had written to disk prior to the restart. A naive but simple approach is to load all the hint files to memory and assume that their aggregation can correctly reference any key-value pair existing on disk in the log files.
 
